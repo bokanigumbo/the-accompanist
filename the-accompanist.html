@@ -1,0 +1,886 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>The Accompanist</title>
+  <link href="https://fonts.googleapis.com/css2?family=IM+Fell+English:ital@0;1&family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400;1,500&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Cormorant Garamond', serif;
+      background: #faf9f7;
+      color: #2C2C2A;
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      padding: 2rem 1rem 3rem;
+    }
+
+    .piano-app {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      width: 100%;
+      max-width: 900px;
+    }
+
+    /* big blackletter title at the top */
+    .app-title {
+      font-family: 'IM Fell English', serif; font-style: italic;
+      font-size: 52px;
+      letter-spacing: 2px;
+      margin-bottom: 1.5rem;
+      text-align: center;
+    }
+
+    /* controls bar — octave count, start, volume, tempo, stats */
+    .controls-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 14px;
+      align-items: flex-end;
+      justify-content: center;
+      margin-bottom: 1.5rem;
+      width: 100%;
+    }
+
+    .ctrl-group label {
+      display: block;
+      font-size: 12px;
+      font-style: italic;
+      color: #5F5E5A;
+      margin-bottom: 4px;
+      letter-spacing: 0.03em;
+    }
+
+    .ctrl-group select,
+    .ctrl-group input[type="range"] {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 13px;
+    }
+
+    select {
+      border: 1px solid #c8c0b0;
+      border-radius: 6px;
+      background: #fff;
+      padding: 4px 8px;
+      cursor: pointer;
+      color: #2C2C2A;
+    }
+
+    input[type="range"] {
+      accent-color: #534AB7;
+      width: 88px;
+    }
+
+    /* tempo label next to the slider */
+    .bpm-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    #bpmVal {
+      font-size: 13px;
+      font-style: italic;
+      color: #5F5E5A;
+      min-width: 56px;
+    }
+
+    /* little pills showing notes played and last note */
+    .stat-pill {
+      background: #F1EFE8;
+      border-radius: 20px;
+      padding: 5px 16px;
+      font-size: 13px;
+      font-style: italic;
+      color: #5F5E5A;
+      align-self: flex-end;
+    }
+
+    .stat-pill b {
+      font-style: normal;
+      font-weight: 600;
+      color: #2C2C2A;
+    }
+
+    /* the box that holds the sheet music score */
+    .score-card {
+      background: #fff;
+      border: 0.5px solid #D3D1C7;
+      border-radius: 12px;
+      padding: 1rem 1.25rem 1.25rem;
+      margin-bottom: 1.5rem;
+      width: 100%;
+    }
+
+    .score-header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 12px;
+      flex-wrap: wrap;
+    }
+
+    /* blackletter name of the current piece */
+    .score-title {
+      font-family: 'IM Fell English', serif; font-style: italic;
+      font-size: 20px;
+    }
+
+    .score-header select {
+      margin-left: auto;
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 13px;
+      font-style: italic;
+    }
+
+    /* shared button styles */
+    button {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 13px;
+      font-style: italic;
+      padding: 6px 14px;
+      border-radius: 8px;
+      border: 0.5px solid #c8c0b0;
+      background: transparent;
+      cursor: pointer;
+      color: #2C2C2A;
+      transition: background 0.12s;
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+    }
+
+    button:hover  { background: #F1EFE8; }
+    button:active { transform: scale(0.97); }
+
+    /* recording button turns purple when active */
+    button.on { background: #e8e6f8; color: #3C3489; border-color: #AFA9EC; }
+
+    /* canvas where the score is drawn */
+    #scoreCanvas {
+      width: 100%;
+      display: block;
+      border-radius: 4px;
+    }
+
+    /* small italic helper text */
+    .hint {
+      font-size: 12px;
+      font-style: italic;
+      color: #888780;
+      letter-spacing: 0.02em;
+      margin-top: 8px;
+      text-align: center;
+    }
+
+    /* scrollable wrapper so the keyboard never breaks the layout */
+    .piano-wrap {
+      width: 100%;
+      overflow-x: auto;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding-bottom: 8px;
+      margin-bottom: 0.75rem;
+    }
+
+    /* dark strip above the keys — the fallboard / piano lid edge */
+    .piano-top-rail {
+      background: #1a1a1a;
+      height: 16px;
+      border-radius: 6px 6px 0 0;
+      border: 2.5px solid #000;
+      border-bottom: none;
+    }
+
+    /* black body wrapping the keys */
+    .piano-body {
+      background: #111;
+      border-radius: 0 0 12px 12px;
+      border: 2.5px solid #000;
+      border-top: none;
+      padding: 0 10px 12px 10px;
+    }
+
+    /* flex row that holds all the keys */
+    .piano {
+      position: relative;
+      display: flex;
+      user-select: none;
+    }
+
+    /* white keys — ivory coloured, press down on click */
+    .wk {
+      position: relative;
+      width: 36px;
+      height: 155px;
+      background: #f5f0e8;
+      border-left: 1px solid #c8c0b0;
+      border-right: 1px solid #c8c0b0;
+      border-bottom: 4px solid #a09080;
+      border-top: none;
+      border-radius: 0 0 5px 5px;
+      cursor: pointer;
+      flex-shrink: 0;
+      display: flex;
+      align-items: flex-end;
+      justify-content: center;
+      padding-bottom: 6px;
+      font-family: 'Cormorant Garamond', serif;
+      font-style: italic;
+      color: #aaa;
+      transition: background 0.04s;
+      margin-right: -1px;
+    }
+
+    .wk:hover { background: #ede8df; }
+
+    /* slightly darker + shifted down = pressed effect */
+    .wk.active {
+      background: #d4cfc6;
+      border-bottom-color: #888;
+      transform: translateY(1px);
+    }
+
+    /* black keys — sit on top of white keys using absolute positioning */
+    .bk {
+      position: absolute;
+      top: 0;
+      width: 22px;
+      height: 95px;
+      background: #111;
+      border-radius: 0 0 4px 4px;
+      cursor: pointer;
+      z-index: 2;
+      border-left: 1.5px solid #2a2a2a;
+      border-right: 1.5px solid #2a2a2a;
+      border-bottom: 4px solid #000;
+      transition: background 0.04s;
+    }
+
+    .bk:hover { background: #2a2a2a; }
+
+    .bk.active {
+      background: #1e1e1e;
+      border-bottom-width: 2px;
+      transform: translateY(1px);
+    }
+
+    /* thin vertical line between each octave on the keyboard */
+    .oct-divider {
+      position: absolute;
+      top: 0;
+      width: 2px;
+      height: 155px;
+      background: #555;
+      z-index: 3;
+      border-radius: 1px;
+      pointer-events: none;
+    }
+
+    /* row of record / playback / clear buttons */
+    .action-row {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-top: 0.75rem;
+      justify-content: center;
+    }
+
+    /* the row of note pills that appear after recording */
+    .seq-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 5px;
+      margin-top: 0.75rem;
+      min-height: 28px;
+      align-items: center;
+      justify-content: center;
+      max-width: 660px;
+    }
+
+    /* individual note pill */
+    .seq-note {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 12px;
+      font-style: italic;
+      padding: 2px 10px;
+      border-radius: 12px;
+      background: #F1EFE8;
+      color: #5F5E5A;
+      border: 0.5px solid #D3D1C7;
+    }
+
+    /* currently playing note lights up purple */
+    .seq-note.playing {
+      background: #EEEDFE;
+      color: #3C3489;
+      border-color: #AFA9EC;
+    }
+
+    /* small keyboard shortcut reminder */
+    .kbd-hint {
+      font-size: 11px;
+      font-style: italic;
+      color: #888780;
+      text-align: center;
+      margin-top: 6px;
+      margin-bottom: 0.5rem;
+    }
+  </style>
+</head>
+<body>
+
+<div class="piano-app">
+
+  <h1 class="app-title">The Accompanist</h1>
+
+  <!-- controls: octave range, volume, tempo, stats -->
+  <div class="controls-row">
+    <div class="ctrl-group">
+      <label>Octaves shown</label>
+      <select id="octCount">
+        <option value="2">2 octaves</option>
+        <option value="3" selected>3 octaves</option>
+        <option value="4">4 octaves</option>
+        <option value="5">5 octaves</option>
+      </select>
+    </div>
+    <div class="ctrl-group">
+      <label>Starting octave</label>
+      <select id="startOct">
+        <option value="2">C2</option>
+        <option value="3" selected>C3</option>
+        <option value="4">C4</option>
+        <option value="5">C5</option>
+      </select>
+    </div>
+    <div class="ctrl-group">
+      <label>Volume</label>
+      <input type="range" id="volSl" min="0" max="1" step="0.05" value="0.5">
+    </div>
+    <div class="ctrl-group">
+      <label>Tempo</label>
+      <div class="bpm-row">
+        <input type="range" id="bpmSl" min="40" max="220" step="1" value="100">
+        <span id="bpmVal">100 bpm</span>
+      </div>
+    </div>
+    <div class="stat-pill">played <b id="noteCount">0</b></div>
+    <div class="stat-pill">last <b id="lastNote">—</b></div>
+  </div>
+
+  <!-- score reader: pick a song, see the notes, hear them play -->
+  <div class="score-card">
+    <div class="score-header">
+      <span class="score-title" id="scoreLabel">Score</span>
+      <select id="songSel">
+        <option value="">— choose a piece —</option>
+        <option value="ode">Ode to Joy</option>
+        <option value="twinkle">Twinkle Twinkle</option>
+        <option value="scale">C Major Scale</option>
+        <option value="mario">Mario Theme</option>
+        <option value="jingle">Jingle Bells</option>
+        <option value="minuet">Minuet in G</option>
+      </select>
+      <button id="scorePlayBtn">&#9654; play score</button>
+      <button id="scoreStopBtn">&#9632; stop</button>
+    </div>
+    <canvas id="scoreCanvas" height="110"></canvas>
+    <p class="hint">select a piece above — the score will appear and play for you</p>
+  </div>
+
+  <!-- the actual piano keyboard -->
+  <div class="piano-wrap" id="pianoWrap">
+    <div class="piano-top-rail" id="topRail"></div>
+    <div class="piano-body" id="pianoBody">
+      <div class="piano" id="piano"></div>
+    </div>
+  </div>
+
+  <p class="kbd-hint">keyboard: A S D F G H J = white keys &nbsp;·&nbsp; W E T Y U = black keys &nbsp;·&nbsp; Z / X = shift octave</p>
+
+  <!-- record what you play, then play it back -->
+  <div class="action-row">
+    <button id="recBtn">&#9679; record</button>
+    <button id="playBtn">&#9654; play back</button>
+    <button id="clearBtn">&#10005; clear</button>
+  </div>
+
+  <!-- recorded notes show up here as little pills -->
+  <div class="seq-row" id="seqRow">
+    <span style="font-size:12px;font-style:italic;color:#888780;">your recorded notes appear here</span>
+  </div>
+
+</div>
+
+<script>
+  // set up the web audio context — this is what actually makes sound
+  const AC = new (window.AudioContext || window.webkitAudioContext)();
+
+  // global state
+  let vol       = 0.5;   // current volume (0–1)
+  let noteCount = 0;     // total notes played this session
+  let recording = false; // are we recording right now?
+  let recorded  = [];    // array of { note, oct } objects the user played
+  let playing   = false; // is playback or score currently running?
+  let songTimers = [];   // holds setTimeout ids so we can cancel them
+  let kbdOctave = 4;     // which octave the keyboard shortcuts target
+
+  // all 12 note names in chromatic order
+  const noteNames = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
+
+  // just the 7 white notes per octave
+  const whites = ['C','D','E','F','G','A','B'];
+
+  // black keys: note name + which white key they sit after (0-indexed)
+  const blackDefs = [
+    { n:'C#', a:0 },
+    { n:'D#', a:1 },
+    { n:'F#', a:3 },
+    { n:'G#', a:4 },
+    { n:'A#', a:5 },
+  ];
+
+  const KW = 36; // white key width in pixels
+
+  // ── work out the frequency for any note + octave ──
+  // based on A4 = 440hz, which puts middle C (C4) at ~261.63hz
+  function freq(note, oct) {
+    const semis = (oct - 4) * 12 + noteNames.indexOf(note);
+    return 261.63 * Math.pow(2, semis / 12);
+  }
+
+  // ── create and play a tone through the web audio api ──
+  function playNote(note, oct, dur = 0.85) {
+    AC.resume(); // browser requires a user gesture before audio starts
+
+    const osc  = AC.createOscillator(); // generates the raw tone
+    const gain = AC.createGain();       // controls the volume envelope
+
+    osc.type = 'triangle'; // triangle wave sounds softer than sawtooth
+    osc.frequency.value = freq(note, oct);
+
+    // start at vol, then fade out over dur seconds
+    gain.gain.setValueAtTime(vol * 0.45, AC.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, AC.currentTime + dur);
+
+    // wire up: oscillator -> gain -> speakers
+    osc.connect(gain);
+    gain.connect(AC.destination);
+    osc.start();
+    osc.stop(AC.currentTime + dur);
+
+    // update the stats pills
+    noteCount++;
+    document.getElementById('noteCount').textContent = noteCount;
+    document.getElementById('lastNote').textContent  = note + oct;
+  }
+
+  // ── briefly add the .active class to a key to show it's being pressed ──
+  function flashKey(note, oct) {
+    const el = document.querySelector(
+      `.wk[data-n="${note}"][data-o="${oct}"],
+       .bk[data-n="${note}"][data-o="${oct}"]`
+    );
+    if (!el) return;
+    el.classList.add('active');
+    setTimeout(() => el.classList.remove('active'), 180);
+  }
+
+  // ── trigger a note: play sound + animate key + optionally save to recording ──
+  function trigger(note, oct) {
+    playNote(note, oct);
+    flashKey(note, oct);
+    if (recording) {
+      recorded.push({ note, oct });
+      renderSeq(recorded, -1); // -1 means no note is highlighted
+    }
+  }
+
+  // ── build the piano keyboard dom from scratch ──
+  // called on load and whenever the octave settings change
+  function buildPiano() {
+    const piano    = document.getElementById('piano');
+    const rail     = document.getElementById('topRail');
+    piano.innerHTML = ''; // clear whatever's there
+
+    const numOcts  = parseInt(document.getElementById('octCount').value);
+    const startOct = parseInt(document.getElementById('startOct').value);
+    const totalW   = numOcts * 7 * KW; // total pixel width of all white keys
+
+    // match the top rail width to the keyboard
+    rail.style.width = (totalW + 20) + 'px';
+
+    let whiteIdx = 0; // tracks how many white keys we've placed so far
+
+    for (let o = startOct; o < startOct + numOcts; o++) {
+
+      // draw a divider line between octaves
+      if (o > startOct) {
+        const div = document.createElement('div');
+        div.className = 'oct-divider';
+        div.style.left = (whiteIdx * KW - 1) + 'px';
+        piano.appendChild(div);
+      }
+
+      // add the 7 white keys for this octave
+      whites.forEach(note => {
+        const k      = document.createElement('div');
+        k.className  = 'wk';
+        k.dataset.n  = note;
+        k.dataset.o  = o;
+        const isC    = note === 'C';
+        // label C notes with the octave number so the user can orient themselves
+        k.innerHTML  = `<span style="font-size:${isC ? '10' : '9'}px;color:${isC ? '#999' : '#ccc'}">${note}${isC ? o : ''}</span>`;
+        k.addEventListener('mousedown', () => trigger(note, o));
+        piano.appendChild(k);
+        whiteIdx++;
+      });
+
+      // add the 5 black keys for this octave
+      // they use absolute positioning relative to the piano container
+      blackDefs.forEach(({ n, a }) => {
+        const octOffset = (o - startOct) * 7; // how many white keys before this octave
+        const k = document.createElement('div');
+        k.className  = 'bk';
+        k.dataset.n  = n;
+        k.dataset.o  = o;
+        // position: (white key index + offset) * key width + a bit to center it
+        k.style.left = `${(octOffset + a) * KW + KW * 0.63}px`;
+        k.addEventListener('mousedown', e => {
+          e.stopPropagation(); // don't also trigger the white key behind it
+          trigger(n, o);
+        });
+        piano.appendChild(k);
+      });
+    }
+
+    piano.style.width = totalW + 'px';
+  }
+
+  // rebuild keyboard when octave settings change
+  document.getElementById('octCount').addEventListener('change', buildPiano);
+  document.getElementById('startOct').addEventListener('change', buildPiano);
+
+  // update volume live as slider moves
+  document.getElementById('volSl').addEventListener('input', e => {
+    vol = parseFloat(e.target.value);
+  });
+
+  // update tempo label live as slider moves
+  document.getElementById('bpmSl').addEventListener('input', e => {
+    document.getElementById('bpmVal').textContent = e.target.value + ' bpm';
+  });
+
+  // ── keyboard shortcut map ──
+  // home row plays white keys, top row plays black keys
+  const kmap = {
+    a:'C', s:'D', d:'E', f:'F', g:'G', h:'A', j:'B',
+    w:'C#', e:'D#', t:'F#', y:'G#', u:'A#',
+  };
+
+  document.addEventListener('keydown', e => {
+    if (e.repeat) return; // ignore held-down keys
+    if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT') return; // don't hijack text inputs
+
+    // z/x shift the keyboard octave down/up
+    if (e.key.toLowerCase() === 'z') { kbdOctave = Math.max(2, kbdOctave - 1); return; }
+    if (e.key.toLowerCase() === 'x') { kbdOctave = Math.min(7, kbdOctave + 1); return; }
+
+    const n = kmap[e.key.toLowerCase()];
+    if (n) trigger(n, kbdOctave);
+  });
+
+  // ── record button: toggle recording on/off ──
+  document.getElementById('recBtn').addEventListener('click', () => {
+    recording = !recording;
+    document.getElementById('recBtn').classList.toggle('on', recording);
+    document.getElementById('recBtn').textContent = recording ? '⏹ recording…' : '⏺ record';
+  });
+
+  // clear the recorded sequence
+  document.getElementById('clearBtn').addEventListener('click', () => {
+    recorded = [];
+    renderSeq([], -1);
+  });
+
+  // ── play back the recorded sequence at the current tempo ──
+  document.getElementById('playBtn').addEventListener('click', () => {
+    if (!recorded.length || playing) return;
+    playing = true;
+
+    // convert bpm to milliseconds per step
+    const step = (60 / parseInt(document.getElementById('bpmSl').value)) * 500;
+
+    recorded.forEach((n, i) => {
+      const t = setTimeout(() => {
+        trigger(n.note, n.oct);
+        renderSeq(recorded, i); // highlight the current note pill
+
+        // when we reach the last note, mark playback as done
+        if (i === recorded.length - 1) {
+          playing = false;
+          renderSeq(recorded, -1);
+        }
+      }, i * step);
+      songTimers.push(t); // save the timer id so we can cancel it
+    });
+  });
+
+  // ── render the row of recorded note pills ──
+  function renderSeq(notes, activeIdx) {
+    const el = document.getElementById('seqRow');
+    if (!notes.length) {
+      el.innerHTML = '<span style="font-size:12px;font-style:italic;color:#888780;">your recorded notes appear here</span>';
+      return;
+    }
+    el.innerHTML = notes.map((n, i) =>
+      `<div class="seq-note ${i === activeIdx ? 'playing' : ''}">${n.note}${n.oct}</div>`
+    ).join('');
+  }
+
+  // ── built-in songs ──
+  // each is an array of { n: note name, o: octave } objects
+  const songs = {
+    ode: {
+      title: 'Ode to Joy',
+      notes: [
+        {n:'E',o:4},{n:'E',o:4},{n:'F',o:4},{n:'G',o:4},
+        {n:'G',o:4},{n:'F',o:4},{n:'E',o:4},{n:'D',o:4},
+        {n:'C',o:4},{n:'C',o:4},{n:'D',o:4},{n:'E',o:4},
+        {n:'E',o:4},{n:'D',o:4},{n:'D',o:4},
+      ],
+    },
+    twinkle: {
+      title: 'Twinkle Twinkle',
+      notes: [
+        {n:'C',o:4},{n:'C',o:4},{n:'G',o:4},{n:'G',o:4},
+        {n:'A',o:4},{n:'A',o:4},{n:'G',o:4},
+        {n:'F',o:4},{n:'F',o:4},{n:'E',o:4},{n:'E',o:4},
+        {n:'D',o:4},{n:'D',o:4},{n:'C',o:4},
+      ],
+    },
+    scale: {
+      title: 'C Major Scale',
+      // just map the 7 note names to octave 4, then add C5 at the top
+      notes: ['C','D','E','F','G','A','B'].map(n => ({ n, o: 4 })).concat([{ n:'C', o:5 }]),
+    },
+    mario: {
+      title: 'Mario Theme',
+      notes: [
+        {n:'E',o:5},{n:'E',o:5},{n:'E',o:5},{n:'C',o:5},{n:'E',o:5},
+        {n:'G',o:5},{n:'G',o:4},
+        {n:'C',o:5},{n:'G',o:4},{n:'E',o:4},
+        {n:'A',o:4},{n:'B',o:4},{n:'A#',o:4},{n:'A',o:4},
+        {n:'G',o:4},{n:'E',o:5},{n:'G',o:5},{n:'A',o:5},
+        {n:'F',o:5},{n:'G',o:5},{n:'E',o:5},{n:'C',o:5},{n:'D',o:5},{n:'B',o:4},
+      ],
+    },
+    jingle: {
+      title: 'Jingle Bells',
+      notes: [
+        {n:'E',o:4},{n:'E',o:4},{n:'E',o:4},
+        {n:'E',o:4},{n:'E',o:4},{n:'E',o:4},
+        {n:'E',o:4},{n:'G',o:4},{n:'C',o:4},{n:'D',o:4},{n:'E',o:4},
+        {n:'F',o:4},{n:'F',o:4},{n:'F',o:4},{n:'F',o:4},
+        {n:'F',o:4},{n:'E',o:4},{n:'E',o:4},{n:'E',o:4},
+        {n:'D',o:4},{n:'D',o:4},{n:'E',o:4},{n:'D',o:4},{n:'G',o:4},
+      ],
+    },
+    minuet: {
+      title: 'Minuet in G',
+      notes: [
+        {n:'D',o:4},{n:'G',o:4},{n:'A',o:4},{n:'B',o:4},{n:'C',o:5},{n:'B',o:4},{n:'A',o:4},
+        {n:'D',o:5},{n:'C',o:5},{n:'B',o:4},{n:'A',o:4},{n:'G',o:4},
+        {n:'A',o:4},{n:'B',o:4},{n:'C',o:5},{n:'B',o:4},{n:'A',o:4},{n:'G',o:4},
+        {n:'F#',o:4},{n:'G',o:4},
+      ],
+    },
+  };
+
+  // ── score drawing ──
+  // this uses the html canvas api to draw a musical staff with noteheads
+
+  // the order of note names on the staff (no sharps/flats here)
+  const staffNotes = ['C','D','E','F','G','A','B'];
+
+  // work out where on the staff a note should sit
+  // returns a number where 0 = middle C (C4), positive = higher, negative = lower
+  function staffPos(note, oct) {
+    const base = note.replace('#','').replace('b',''); // strip accidentals
+    return (oct - 4) * 7 + staffNotes.indexOf(base);
+  }
+
+  // draw the full score onto the canvas
+  function drawScore(seq, activeIdx) {
+    const canvas = document.getElementById('scoreCanvas');
+    const dpr    = window.devicePixelRatio || 1; // retina display support
+    const W      = canvas.offsetWidth || 600;
+
+    // set the actual pixel dimensions (scaled for retina)
+    canvas.width  = W * dpr;
+    canvas.height = 110 * dpr;
+
+    const ctx = canvas.getContext('2d');
+    ctx.scale(dpr, dpr); // scale everything up for retina
+
+    // colours
+    const activeCol = '#534AB7'; // purple for the currently playing note
+    const fg        = '#2C2C2A'; // dark for staff lines and noteheads
+    const fgMid     = '#5F5E5A'; // medium for note labels
+
+    ctx.clearRect(0, 0, W, 110);
+
+    // layout constants
+    const staffTop    = 20;  // y position of the top staff line
+    const lineGap     = 10;  // vertical gap between staff lines
+    const clefW       = 34;  // horizontal space reserved for the treble clef
+    const noteSpacing = Math.min(36, (W - clefW - 16) / Math.max(seq.length, 1));
+
+    // draw the 5 horizontal staff lines
+    ctx.strokeStyle = fg;
+    ctx.lineWidth   = 0.8;
+    for (let l = 0; l < 5; l++) {
+      const y = staffTop + l * lineGap;
+      ctx.beginPath();
+      ctx.moveTo(8, y);
+      ctx.lineTo(W - 8, y);
+      ctx.stroke();
+    }
+
+    // draw the treble clef using a unicode music symbol
+    ctx.font      = '36px serif';
+    ctx.fillStyle = fg;
+    ctx.fillText('𝄞', 8, staffTop + 33);
+
+    const midC = staffPos('C', 4); // middle C is our vertical reference point
+
+    // draw each note in the sequence
+    seq.forEach((item, i) => {
+      const pos      = staffPos(item.n, item.o);
+      const rel      = pos - midC; // distance above/below middle C
+      // higher notes go up (smaller y), lower notes go down (larger y)
+      const noteY    = staffTop + 4 * lineGap - rel * (lineGap / 2) + lineGap;
+      const x        = clefW + i * noteSpacing + noteSpacing / 2;
+      const isActive = i === activeIdx;
+      const nc       = isActive ? activeCol : fg;
+      const bot      = staffTop + 4 * lineGap; // y of the bottom staff line
+
+      // draw a ledger line below the staff if the note is too low
+      if (noteY > bot + lineGap / 2) {
+        ctx.strokeStyle = isActive ? activeCol : fgMid;
+        ctx.lineWidth   = 0.6;
+        ctx.beginPath();
+        ctx.moveTo(x - 8, bot + lineGap);
+        ctx.lineTo(x + 8, bot + lineGap);
+        ctx.stroke();
+      }
+
+      // draw a ledger line above the staff if the note is too high
+      if (noteY < staffTop - lineGap / 2) {
+        ctx.strokeStyle = isActive ? activeCol : fgMid;
+        ctx.lineWidth   = 0.6;
+        ctx.beginPath();
+        ctx.moveTo(x - 8, staffTop - lineGap);
+        ctx.lineTo(x + 8, staffTop - lineGap);
+        ctx.stroke();
+      }
+
+      // draw the notehead as a filled ellipse, slightly tilted
+      ctx.strokeStyle = nc;
+      ctx.lineWidth   = 0.9;
+      ctx.beginPath();
+      ctx.ellipse(x, noteY, 5.5, 4, -0.22, 0, Math.PI * 2);
+      ctx.fillStyle = isActive ? '#EEEDFE' : '#2C2C2A'; // purple fill when active
+      ctx.fill();
+      ctx.stroke();
+
+      // draw the stem going upward from the notehead
+      ctx.lineWidth   = 0.9;
+      ctx.strokeStyle = nc;
+      ctx.beginPath();
+      ctx.moveTo(x + 5.5, noteY);
+      ctx.lineTo(x + 5.5, noteY - 28);
+      ctx.stroke();
+
+      // draw a sharp sign to the left of the note if needed
+      if (item.n.includes('#')) {
+        ctx.font      = 'italic 11px "Cormorant Garamond", serif';
+        ctx.fillStyle = nc;
+        ctx.textAlign = 'center';
+        ctx.fillText('♯', x - 13, noteY + 3);
+      }
+
+      // label the note below the staff (e.g. "C4", "F#4")
+      ctx.font      = 'italic 10px "Cormorant Garamond", serif';
+      ctx.fillStyle = isActive ? activeCol : fgMid;
+      ctx.textAlign = 'center';
+      ctx.fillText(item.n + item.o, x, staffTop + 5 * lineGap + 11);
+      ctx.textAlign = 'left'; // reset alignment for next draw call
+    });
+  }
+
+  // ── song selection and score playback ──
+  let currentSong = null;
+
+  // when a song is picked from the dropdown, draw its score
+  document.getElementById('songSel').addEventListener('change', e => {
+    const key   = e.target.value;
+    currentSong = key;
+    if (key && songs[key]) {
+      document.getElementById('scoreLabel').textContent = songs[key].title;
+      drawScore(songs[key].notes, -1); // draw with no note highlighted
+    } else {
+      drawScore([], -1); // empty score if nothing selected
+    }
+  });
+
+  // play through the score one note at a time, lighting each one up
+  document.getElementById('scorePlayBtn').addEventListener('click', () => {
+    if (!currentSong || !songs[currentSong] || playing) return;
+    const seq  = songs[currentSong].notes;
+    playing    = true;
+
+    // time between notes in ms, based on bpm
+    const step = (60 / parseInt(document.getElementById('bpmSl').value)) * 600;
+
+    seq.forEach((item, i) => {
+      const t = setTimeout(() => {
+        playNote(item.n, item.o);   // play the sound
+        flashKey(item.n, item.o);  // flash the key
+        drawScore(seq, i);         // highlight this note on the score
+
+        // when the last note finishes, reset
+        if (i === seq.length - 1) {
+          playing = false;
+          setTimeout(() => drawScore(seq, -1), 400);
+        }
+      }, i * step);
+      songTimers.push(t);
+    });
+  });
+
+  // stop playback and cancel all pending notes
+  document.getElementById('scoreStopBtn').addEventListener('click', () => {
+    songTimers.forEach(clearTimeout);
+    songTimers = [];
+    playing    = false;
+    if (currentSong && songs[currentSong]) drawScore(songs[currentSong].notes, -1);
+  });
+
+  // redraw the score if the window is resized (canvas width changes)
+  window.addEventListener('resize', () => {
+    if (currentSong && songs[currentSong]) drawScore(songs[currentSong].notes, -1);
+  });
+
+  // ── kick everything off ──
+  buildPiano();    // draw the keyboard
+  drawScore([], -1); // draw an empty staff
+</script>
+</body>
+</html>
