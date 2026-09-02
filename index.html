@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>The Accompanist</title>
+  <link href="https://fonts.googleapis.com/css2?family=IM+Fell+English:ital@0;1&family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400;1,500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div class="piano-app">
+
+  <h1 class="app-title">The Accompanist</h1>
+  <p class="app-subtitle">a piano that listens to what you play, and improvises a chord accompaniment underneath it</p>
+
+  <!-- controls: octave range, volume, tempo, stats -->
+  <div class="controls-row">
+    <div class="ctrl-group">
+      <label for="octCount">Octaves shown</label>
+      <select id="octCount">
+        <option value="2">2 octaves</option>
+        <option value="3" selected>3 octaves</option>
+        <option value="4">4 octaves</option>
+        <option value="5">5 octaves</option>
+      </select>
+    </div>
+    <div class="ctrl-group">
+      <label for="startOct">Starting octave</label>
+      <select id="startOct">
+        <option value="2">C2</option>
+        <option value="3" selected>C3</option>
+        <option value="4">C4</option>
+        <option value="5">C5</option>
+      </select>
+    </div>
+    <div class="ctrl-group">
+      <label for="volSl">Volume</label>
+      <input type="range" id="volSl" min="0" max="1" step="0.05" value="0.5">
+    </div>
+    <div class="ctrl-group">
+      <label for="bpmSl">Tempo</label>
+      <div class="bpm-row">
+        <input type="range" id="bpmSl" min="40" max="220" step="1" value="100">
+        <span id="bpmVal">100 bpm</span>
+      </div>
+    </div>
+    <div class="stat-pill">played <b id="noteCount">0</b></div>
+    <div class="stat-pill">last <b id="lastNote">—</b></div>
+    <div class="stat-pill">chord <b id="chordNow">—</b></div>
+  </div>
+
+  <!-- note visualiser: pick a song, see the notes, hear them play with an
+       automatic chord accompaniment underneath -->
+  <div class="score-card">
+    <div class="score-header">
+      <span class="score-title" id="scoreLabel">Note visualiser</span>
+      <label for="songSel" class="sr-only">Choose a piece</label>
+      <select id="songSel">
+        <option value="">— choose a piece —</option>
+        <option value="ode">Ode to Joy</option>
+        <option value="twinkle">Twinkle Twinkle</option>
+        <option value="scale">C Major Scale</option>
+        <option value="mary">Mary Had a Little Lamb</option>
+        <option value="jingle">Jingle Bells</option>
+        <option value="minuet">Minuet in G</option>
+      </select>
+      <button id="scorePlayBtn">&#9654; play</button>
+      <button id="scoreStopBtn">&#9632; stop</button>
+    </div>
+    <canvas id="scoreCanvas" height="110" role="img" aria-label="Note visualiser, currently empty."></canvas>
+    <!-- the real accessible alternative to the canvas drawing above, not
+         just a static label - kept in sync every time the canvas redraws -->
+    <ul id="scoreTextAlt" class="sr-only"></ul>
+    <p class="hint">select a piece above — an automatic chord accompaniment plays underneath the melody</p>
+  </div>
+
+  <!-- the actual piano keyboard -->
+  <div class="piano-wrap" id="pianoWrap">
+    <div class="piano-top-rail" id="topRail"></div>
+    <div class="piano-body" id="pianoBody">
+      <div class="piano" id="piano"></div>
+    </div>
+  </div>
+
+  <p class="kbd-hint">
+    keyboard: A S D F G H J = white keys &nbsp;·&nbsp; W E T Y U = black keys &nbsp;·&nbsp;
+    Z / X = shift octave (currently <span id="kbdOctaveDisplay">octave 4</span>)
+  </p>
+
+  <!-- record what you play, then play it back with the same automatic
+       accompaniment used for the built-in songs -->
+  <div class="action-row">
+    <button id="recBtn" aria-pressed="false">&#9679; record</button>
+    <button id="playBtn">&#9654; play back</button>
+    <button id="clearBtn" aria-label="Clear recording">&#10005; clear</button>
+  </div>
+
+  <!-- recorded notes show up here as little pills -->
+  <div class="seq-row" id="seqRow" aria-live="polite">
+    <span style="font-size:12px;font-style:italic;color:#888780;">your recorded notes appear here</span>
+  </div>
+
+</div>
+
+<script src="js/theory.js"></script>
+<script src="js/chord-engine.js"></script>
+<script src="js/audio-engine.js"></script>
+<script src="js/songs.js"></script>
+<script src="js/recorder.js"></script>
+<script src="js/playback-scheduler.js"></script>
+<script src="js/playback-controller.js"></script>
+<script src="js/piano.js"></script>
+<script src="js/visualiser.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>
