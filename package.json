@@ -3,6 +3,6 @@
   "version": "1.0.0",
   "description": "a piano that records real rhythm and improvises a chord accompaniment underneath what you play",
   "scripts": {
-    "test": "node tests/theory.test.js && node tests/chord-engine.test.js && node tests/playback-scheduler.test.js && node tests/recorder.test.js && node tests/playback-controller.test.js"
+    "test": "node tests/theory.test.js && node tests/chord-engine.test.js && node tests/playback-scheduler.test.js && node tests/recorder.test.js && node tests/playback-controller.test.js && node tests/integration.test.js"
   }
 }

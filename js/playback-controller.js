@@ -89,7 +89,19 @@
       // melody, played quietly underneath it
       const chordRegions = ChordEngine.chooseChords(timeline, chordWindowSeconds);
       chordRegions.forEach((region) => {
-        const handles = AudioEngine.scheduleChord(anchorTime, region);
+        // chooseChords() returns { chord, startTime, duration } - chord
+        // itself being the richer { root, quality, tones } object built by
+        // chord-engine.js. scheduleChord() is a general-purpose audio-engine
+        // function that only knows about a flat { tones, startTime, duration }
+        // shape (deliberately not coupled to chord-engine's specific chord
+        // representation, so it stays usable by any caller with a plain
+        // tones array) - so the translation between the two happens here,
+        // at the one place that actually needs to know about both.
+        const handles = AudioEngine.scheduleChord(anchorTime, {
+          tones: region.chord.tones,
+          startTime: region.startTime,
+          duration: region.duration,
+        });
         scheduledAudioHandles.push(...handles);
 
         const timer = setTimeout(() => {

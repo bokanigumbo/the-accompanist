@@ -41,7 +41,7 @@
   let kbdOctave = 4;
   let currentSongKey = null;
   const heldByKeyboard = new Map(); // computer-key -> {note, octave, audioHandle}
-  const heldByPiano = new Map(); // "note+octave" -> audioHandle, for piano/touch input
+  const heldByPiano = new Map(); // "note+octave" -> {note, octave, handle}, for piano/touch/keyboard-activated input
 
   const recorder = Recorder.createRecorder(() => performance.now());
   const playbackController = PlaybackController.createPlaybackController();
@@ -64,7 +64,23 @@
   }
 
   // ── piano keyboard (mouse/touch/stylus, via pointer events) ──
+  function releaseAllHeldPianoNotes() {
+    // rebuilding the piano (via Piano.buildPiano) wipes the container's
+    // contents outright - any button currently held down is destroyed
+    // without its pointerup/pointerleave/keyup handler ever getting a
+    // chance to fire, since the element itself is simply gone, not
+    // "released" by the user. without this, changing the octave controls
+    // mid-hold could leave that note's oscillator sounding forever, with
+    // nothing left to ever call noteOff on it.
+    for (const { note, octave, handle } of heldByPiano.values()) {
+      liveNoteOff(note, octave, handle);
+    }
+    heldByPiano.clear();
+  }
+
   function rebuildPiano() {
+    releaseAllHeldPianoNotes();
+
     Piano.buildPiano({
       container: els.piano,
       railEl: els.topRail,
@@ -72,11 +88,11 @@
       startOctave: parseInt(els.startOct.value, 10),
       onNoteDown: (note, octave) => {
         const handle = liveNoteOn(note, octave);
-        heldByPiano.set(note + octave, handle);
+        heldByPiano.set(note + octave, { note, octave, handle });
       },
       onNoteUp: (note, octave) => {
-        const handle = heldByPiano.get(note + octave);
-        liveNoteOff(note, octave, handle);
+        const held = heldByPiano.get(note + octave);
+        if (held) liveNoteOff(held.note, held.octave, held.handle);
         heldByPiano.delete(note + octave);
       },
     });

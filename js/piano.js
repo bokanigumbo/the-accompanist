@@ -65,6 +65,29 @@
       el.addEventListener("pointerup", release);
       el.addEventListener("pointerleave", release);
       el.addEventListener("pointercancel", release);
+
+      // keyboard activation: these are real, focusable <button> elements,
+      // so Enter/Space already generate a synthetic "click" once focused -
+      // but nothing here ever listened for clicks at all, only pointer
+      // events, so tabbing to a key and pressing Enter or Space previously
+      // did precisely nothing. this listens for the actual key press/
+      // release directly instead (not the synthetic click), which is what
+      // makes a genuine hold-to-sustain note possible from the keyboard,
+      // matching the pointer-based interaction above rather than just
+      // firing a fixed, instantaneous pluck on activation.
+      el.addEventListener("keydown", (e) => {
+        if (e.key !== "Enter" && e.key !== " ") return;
+        e.preventDefault(); // stops space from scrolling the page, and stops the browser's own synthetic click from ALSO firing
+        if (e.repeat) return; // a held key repeats keydown continuously at the OS level - one physical press should be one note-on, not many
+        if (el.classList.contains("active")) return;
+        el.classList.add("active");
+        onNoteDown(note, octave);
+      });
+      el.addEventListener("keyup", (e) => {
+        if (e.key !== "Enter" && e.key !== " ") return;
+        e.preventDefault();
+        release();
+      });
     }
 
     for (let o = startOctave; o < startOctave + numOctaves; o++) {

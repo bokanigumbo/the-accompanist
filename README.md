@@ -1,8 +1,8 @@
 # The Accompanist
 
-a piano that records what you actually play - real timing, held notes, chords, rests - and improvises a chord accompaniment underneath it, live.
+a piano that records what you actually play - real timing, held notes, chords, rests - and improvises a chord accompaniment underneath your recorded performance and the built-in songs when you play them back.
 
-*(a screenshot and a short performance recording go here - I can't capture either from this environment since it needs an actual browser session with audio, but this is exactly the kind of project worth showing rather than just describing, so it's worth grabbing both once you've got it running)*
+*(a screenshot and a short (10-15s) screen recording go here - this project especially needs one, since its actual value (real rhythm, audible chord accompaniment) isn't something a static screenshot alone can show. I can't capture either from this sandbox - no browser, no audio output here - so this one's genuinely on you. worth recording: pick a built-in song, press play, and let the accompaniment chord actually play underneath it audibly, since that's the single thing this project does that the previous version never did at all.)*
 
 ## what this actually is
 
@@ -13,12 +13,12 @@ a piano that records what you actually play - real timing, held notes, chords, r
 ## features
 
 - a full on-screen piano, playable by mouse, touch, stylus, or your computer keyboard
-- **real rhythm recording** - press-and-release timing, held-note duration, gaps, and simultaneous notes (chords) are all captured, not just which keys were pressed
+- **real rhythm recording** - press-and-release timing, held-note duration, gaps, and simultaneous notes (chords) are all captured, not just which keys were pressed. changing the octave controls mid-hold correctly releases whatever's currently sounding first, rather than leaving it orphaned when the key it was tied to gets rebuilt out from under it.
 - **correct tempo math** - a beat at 100bpm lasts exactly 600ms, calculated one consistent way everywhere, rather than the two different (and both wrong) values the original used for recorded playback versus song playback
-- **live chord accompaniment** for both the built-in songs and anything you record, chosen automatically by analysing the actual notes being played - not a fixed progression
+- **automatic chord accompaniment** during playback of the built-in songs and anything you record, chosen by analysing the actual notes in the melody - not a fixed progression. this happens on *playback*, not while you're actively playing or recording - see "known limitations" below.
 - 6 built-in pieces, each with real rhythm (including rests where the tune needs them): Ode to Joy, Twinkle Twinkle, a C major scale, Mary Had a Little Lamb, Jingle Bells, and Minuet in G
 - accurate audio scheduling - every note's start time is set directly on the Web Audio clock, not on a chain of `setTimeout` calls that can drift out of sync with each other over a long piece
-- accessible piano keys (real `<button>` elements with proper names, not unlabelled `<div>`s), visible keyboard focus throughout, and the current keyboard octave shown on screen when you shift it with Z/X
+- accessible piano keys (real `<button>` elements with proper names, genuinely operable from the keyboard via Enter/Space - not just focusable but functionally dead - with the same hold-to-sustain behaviour as clicking, plus visible keyboard focus throughout, and the current keyboard octave shown on screen when you shift it with Z/X. the on-screen keys and the A-J computer-key mapping are two separate, both-genuine ways to play, not one pretending to be the other.
 
 ## a note on "Mario Theme"
 
@@ -67,11 +67,13 @@ no build step - just open `index.html` in a browser.
 npm test
 ```
 
-41 tests across 5 files, covering: frequency and tempo conversion (including the exact 100bpm/600ms case from the bug report), chord fitting across major and minor keys, building a playback timeline from both songs and recordings, recording timing with a fully deterministic fake clock (held notes, gaps, simultaneous notes, releasing a key that was never pressed), and the playback controller's state management - including a test that reproduces the exact "clearing during playback" bug and asserts it's actually fixed, not just superficially quiet.
+45 tests across 6 files, covering: frequency and tempo conversion (including the exact 100bpm/600ms case from an earlier bug report), chord fitting across major and minor keys, building a playback timeline from both songs and recordings, recording timing with a fully deterministic fake clock (held notes, gaps, simultaneous notes, releasing a key that was never pressed), the playback controller's state management (including a test that reproduces the exact "clearing during playback" bug and asserts it's actually fixed, not just superficially quiet), and - critically - a dedicated integration suite (`tests/integration.test.js`) that runs the real `ChordEngine` and `AudioEngine` together rather than mocking the boundary between them, which is what actually caught the bug described just below.
 
-what's **not** covered: anything that needs a real browser to test - actual audio output, the piano's pointer-event handling, canvas drawing, and the accessibility behaviour (focus movement, aria-live announcements). those were checked by reasoning through the code and by simulating multi-script loading with node's `vm` module (which caught two real bugs during development - see below), but not by an automated browser test suite.
+what's **not** covered: anything that needs a real browser to test - actual audio output, the piano's pointer-event handling, canvas drawing, and the accessibility behaviour (focus movement, aria-live announcements). those were checked by reasoning through the code and by simulating a real DOM with node's `vm` module and, for a couple of specific fixes, `jsdom` (used as a one-off verification tool during development, not a permanent dependency - see the project's `package.json`), but not by an automated browser test suite.
 
-## two real bugs this caught during development, worth mentioning
+## three real bugs this caught during development, worth mentioning
+
+**a data-shape mismatch that every existing test missed.** `ChordEngine.chooseChords()` returns `{ chord, startTime, duration }` - `chord` itself being the richer object with a `.tones` array inside it. `AudioEngine.scheduleChord()` expected a flat `{ tones, startTime, duration }` directly, and the controller passed the chord-engine's region straight through unchanged - so `tones` was `undefined` the moment any real accompaniment got scheduled, which is to say: pressing play on literally any song or recording. every existing controller test mocked out `scheduleChord` with a stub that never looked at what it was given, and the one place chord scheduling was tested at all used an empty chord list - so this was invisible to 41 passing tests. fixed at the call site (translating the region into the shape `scheduleChord` actually expects), and a new integration test (`tests/integration.test.js`) now runs the real chord engine and real audio engine together specifically so a mismatch like this can't hide behind a mock again - proved this by temporarily reverting the fix and confirming the new tests fail while the old mocked suite stays green, exactly reproducing the original bug's blind spot.
 
 **a cross-file global collision.** `chord-engine.js` originally tried to destructure `pitchClass` from `theory.js`'s exports at its own top level - but `theory.js` already declares a plain global `function pitchClass()`, and you can't `const`-declare an identifier that collides with an existing global function of the same name in the same scope. this is invisible to a `require()`-based test (node's module system doesn't share scope the way multiple `<script>` tags do), and only showed up when simulating genuine multi-script browser loading with node's `vm` module. every file now uses an explicit namespace object (`window.Theory`, `window.ChordEngine`, etc.) instead of bare globals, specifically to avoid this class of bug entirely.
 
@@ -79,7 +81,12 @@ what's **not** covered: anything that needs a real browser to test - actual audi
 
 ## known limitations
 
+- **the accompaniment only plays during playback, not while you're actually performing.** it accompanies the built-in songs and your own recordings once you press play - it does not listen and generate chords underneath your hands in real time while you're actively playing or recording. genuine real-time accompaniment (following a live performer's tempo and harmony as they play) is a substantially harder problem than analysing a melody that's already fully known, and is listed as a possible future direction below rather than attempted here.
 - the chord accompaniment doesn't do key detection - it fits chords to whatever's being played in the moment, which works well in practice but isn't the same as understanding a piece is "in G major"
 - no chord progression styles, no waltz/ballad accompaniment patterns, no key transposition, no tap tempo, no metronome, no MIDI input, no microphone pitch detection - all genuinely reasonable next steps for a deeper accompanist, left out of this pass to keep scope bounded to what's here now
 - the note visualiser remains a pitch visualiser, not real notation - see "what this actually is" above
 - no automated browser/canvas tests (see "running the tests" above)
+
+## license
+
+MIT - see [LICENSE](LICENSE).
